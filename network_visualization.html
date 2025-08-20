@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Traffic Visualization Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .node {
+            transition: all 0.3s ease;
+        }
+        .packet {
+            animation: movePacket 2s linear forwards;
+            position: absolute;
+        }
+        @keyframes movePacket {
+            100% { transform: translateX(var(--distance)) translateY(var(--height)); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8 text-blue-800">Network Traffic Visualization</h1>
+        <p class="text-center mb-8 text-gray-700">
+            This educational tool simulates network traffic to demonstrate fundamental concepts.
+            <br>
+            In a real network environment, capturing actual packets requires specialized tools and proper authorization.
+        </p>
+
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-blue-700">Simulation Controls</h2>
+            <div class="flex flex-wrap gap-4 mb-4">
+                <button id="startSimulation" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                    Start Simulation
+                </button>
+                <button id="stopSimulation" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                    Stop Simulation
+                </button>
+                <select id="protocolSelect" class="border rounded px-3 py-2">
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                    <option value="HTTP">HTTP</option>
+                    <option value="HTTPS">HTTPS</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Network Visualization -->
+            <div class="bg-white rounded-lg shadow-md p-6 relative" style="height: 500px;">
+                <h2 class="text-xl font-semibold mb-4 text-blue-700">Network Diagram</h2>
+                <div id="networkDiagram" class="h-full relative">
+                    <!-- Client Node -->
+                    <div id="clientNode" class="node absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-100 p-4 rounded-full w-24 h-24 flex items-center justify-center shadow">
+                        <span class="font-bold text-blue-800">Client</span>
+                    </div>
+                    
+                    <!-- Server Node -->
+                    <div id="serverNode" class="node absolute right-4 top-1/2 transform -translate-y-1/2 bg-green-100 p-4 rounded-full w-24 h-24 flex items-center justify-center shadow">
+                        <span class="font-bold text-green-800">Server</span>
+                    </div>
+                    
+                    <!-- Packets will be added here by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Packet Information -->
+            <div class="bg-white rounded-lg shadow-md p-6 overflow-y-auto" style="height: 500px;">
+                <h2 class="text-xl font-semibold mb-4 text-blue-700">Packet Information</h2>
+                <div id="packetLog" class="space-y-2">
+                    <p class="text-sm text-gray-500">Packet information will appear here during the simulation...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+            <h2 class="text-xl font-semibold mb-4 text-blue-700">Educational Resources</h2>
+            <ul class="list-disc pl-5 space-y-2">
+                <li>
+                    <a href="https://www.wireshark.org/" class="text-blue-600 hover:underline" target="_blank">
+                        Wireshark - A widely-used network protocol analyzer (requires ethical authorization to use)
+                    </a>
+                </li>
+                <li>
+                    <a href="https://www.cloudflare.com/learning/" class="text-blue-600 hover:underline" target="_blank">
+                        Cloudflare Learning Center - Networking fundamentals
+                    </a>
+                </li>
+                <li>
+                    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview" class="text-blue-600 hover:underline" target="_blank">
+                        MDN HTTP documentation
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let simulationInterval;
+        let packetCount = 0;
+        const protocols = ['TCP', 'UDP', 'HTTP', 'HTTPS', 'DNS', 'ICMP'];
+        const packetTypes = ['Data', 'ACK', 'SYN', 'FIN', 'RST'];
+
+        document.getElementById('startSimulation').addEventListener('click', startSimulation);
+        document.getElementById('stopSimulation').addEventListener('click', stopSimulation);
+
+        function startSimulation() {
+            stopSimulation();
+            document.getElementById('packetLog').innerHTML = '';
+            packetCount = 0;
+            
+            simulationInterval = setInterval(() => {
+                createPacket();
+            }, 1000);
+        }
+
+        function stopSimulation() {
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                
+                // Clear any existing packets
+                document.querySelectorAll('.packet').forEach(p => p.remove());
+            }
+        }
+
+        function createPacket() {
+            packetCount++;
+            const networkDiagram = document.getElementById('networkDiagram');
+            const clientNode = document.getElementById('clientNode');
+            const serverNode = document.getElementById('serverNode');
+            const packetLog = document.getElementById('packetLog');
+            
+            // Get current simulation settings
+            const selectedProtocol = document.getElementById('protocolSelect').value;
+            
+            // Randomly determine direction (client -> server or server -> client)
+            const direction = Math.random() > 0.5 ? 'clientToServer' : 'serverToClient';
+            
+            // Create a new packet element and log entry
+            const packet = document.createElement('div');
+            packet.className = 'packet bg-yellow-200 w-8 h-8 rounded-full flex items-center justify-center shadow-sm';
+            
+            // Set packet animation properties
+            const clientRect = clientNode.getBoundingClientRect();
+            const serverRect = serverNode.getBoundingClientRect();
+            const diagramRect = networkDiagram.getBoundingClientRect();
+            
+            if (direction === 'clientToServer') {
+                // Start from client to server
+                packet.style.left = (clientRect.left - diagramRect.left + clientRect.width) + 'px';
+                packet.style.top = (clientRect.top - diagramRect.top + clientRect.height/2 - 4) + 'px';
+                packet.style.setProperty('--distance', (serverRect.left - clientRect.right) + 'px');
+                packet.style.setProperty('--height', (serverRect.top - clientRect.top) + 'px');
+                
+                // Log the packet info
+                logPacket(packetCount, 'Client', 'Server', selectedProtocol);
+            } else {
+                // Start from server to client
+                packet.style.left = (serverRect.left - diagramRect.left - 30) + 'px';
+                packet.style.top = (serverRect.top - diagramRect.top + serverRect.height/2 - 4) + 'px';
+                packet.style.setProperty('--distance', (clientRect.left - serverRect.left) + 'px');
+                packet.style.setProperty('--height', (clientRect.top - serverRect.top) + 'px');
+                
+                // Log the packet info
+                logPacket(packetCount, 'Server', 'Client', selectedProtocol);
+            }
+            
+            networkDiagram.appendChild(packet);
+            
+            // Remove packet after animation completes
+            setTimeout(() => {
+                packet.remove();
+            }, 2000);
+        }
+
+        function logPacket(id, source, destination, protocol) {
+            const packetLog = document.getElementById('packetLog');
+            
+            // Generate random packet details for educational purposes
+            const sourcePort = Math.floor(Math.random() * 65535);
+            const destPort = Math.floor(Math.random() * 65535);
+            const size = Math.floor(Math.random() * 1024) + 100;
+            const packetType = packetTypes[Math.floor(Math.random() * packetTypes.length)];
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'border-b pb-2 mb-2';
+            logEntry.innerHTML = `
+                <div class="flex justify-between mb-1">
+                    <span class="font-semibold">Packet #${id}</span>
+                    <span class="text-sm text-gray-500">${timestamp}</span>
+                </div>
+                <div class="grid grid-cols-2 text-sm gap-x-4">
+                    <div>
+                        <span class="font-medium">Source:</span> ${source} (${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.random() > 0.5 ? Math.floor(Math.random() * 255) : sourcePort})
+                    </div>
+                    <div>
+                        <span class="font-medium">Destination:</span> ${destination} (${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.random() > 0.5 ? Math.floor(Math.random() * 255) : destPort})
+                    </div>
+                    <div>
+                        <span class="font-medium">Protocol:</span> ${protocol}
+                    </div>
+                    <div>
+                        <span class="font-medium">Type:</span> ${packetType}
+                    </div>
+                    <div>
+                        <span class="font-medium">Size:</span> ${size} bytes
+                    </div>
+                    <div>
+                        <span class="font-medium">Flags:</span> ${generateRandomFlags()}
+                    </div>
+                </div>
+            `;
+            
+            packetLog.prepend(logEntry);
+        }
+
+        function generateRandomFlags() {
+            const flags = [];
+            if (Math.random() > 0.5) flags.push('ACK');
+            if (Math.random() > 0.5) flags.push('SYN');
+            if (Math.random() > 0.5) flags.push('FIN');
+            if (Math.random() > 0.5) flags.push('RST');
+            if (flags.length === 0) flags.push('DATA');
+            return flags.join(', ');
+        }
+    </script>
+</body>
+</html>
+
